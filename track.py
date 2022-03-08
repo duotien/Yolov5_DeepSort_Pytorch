@@ -26,7 +26,7 @@ from yolov5.utils.datasets import LoadImages, LoadStreams
 from yolov5.utils.general import (LOGGER, check_img_size, non_max_suppression, scale_coords, 
                                   check_imshow, xyxy2xywh, increment_path)
 from yolov5.utils.torch_utils import select_device, time_sync
-from yolov5.utils.plots import Annotator, colors
+from yolov5.utils.plots import Annotator, colors, save_one_box
 from deep_sort.utils.parser import get_config
 from deep_sort.deep_sort import DeepSort
 
@@ -38,9 +38,10 @@ ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
 
 def detect(opt):
-    out, source, yolo_model, deep_sort_model, show_vid, save_vid, save_txt, imgsz, evaluate, half, project, name, exist_ok= \
+    out, source, yolo_model, deep_sort_model, show_vid, save_vid, save_txt, save_crop,\
+        imgsz, evaluate, half, project, name, exist_ok, skip_frame= \
         opt.output, opt.source, opt.yolo_model, opt.deep_sort_model, opt.show_vid, opt.save_vid, \
-        opt.save_txt, opt.imgsz, opt.evaluate, opt.half, opt.project, opt.name, opt.exist_ok
+        opt.save_txt, opt.save_crop, opt.imgsz, opt.evaluate, opt.half, opt.project, opt.name, opt.exist_ok, opt.skip_frame
     webcam = source == '0' or source.startswith(
         'rtsp') or source.startswith('http') or source.endswith('.txt')
 
@@ -95,7 +96,7 @@ def detect(opt):
         dataset = LoadStreams(source, img_size=imgsz, stride=stride, auto=pt and not jit)
         bs = len(dataset)  # batch_size
     else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt and not jit)
+        dataset = LoadImages(source, img_size=imgsz, stride=stride, auto=pt and not jit, skip_frame=skip_frame)
         bs = 1  # batch_size
     vid_path, vid_writer = [None] * bs, [None] * bs
 
@@ -142,6 +143,9 @@ def detect(opt):
             save_path = str(save_dir / p.name)  # im.jpg, vid.mp4, ...
             s += '%gx%g ' % img.shape[2:]  # print string
 
+            imc = im0.copy() if save_crop else im0  # for save_crop
+
+
             annotator = Annotator(im0, line_width=2, pil=not ascii)
 
             if det is not None and len(det):
@@ -186,6 +190,9 @@ def detect(opt):
                             with open(txt_path, 'a') as f:
                                 f.write(('%g ' * 10 + '\n') % (frame_idx + 1, id, bbox_left,  # MOT format
                                                                bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))
+
+                        if save_crop:
+                            save_one_box(bboxes, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}_{id}_.jpg', BGR=True)
 
                 LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), DeepSort:({t5 - t4:.3f}s)')
 
@@ -240,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--show-vid', action='store_true', help='display tracking video results')
     parser.add_argument('--save-vid', action='store_true', help='save video tracking results')
     parser.add_argument('--save-txt', action='store_true', help='save MOT compliant results to *.txt')
+    parser.add_argument('--save-crop', action='store_true', help='save cropped prediction boxes')
     # class 0 is person, 1 is bycicle, 2 is car... 79 is oven
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 16 17')
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
@@ -253,6 +261,7 @@ if __name__ == '__main__':
     parser.add_argument('--project', default=ROOT / 'runs/track', help='save results to project/name')
     parser.add_argument('--name', default='exp', help='save results to project/name')
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
+    parser.add_argument('--skip-frame', type=int, default=0, help='number of frame to skip for next detection')
     opt = parser.parse_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
 
