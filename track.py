@@ -192,7 +192,7 @@ def detect(opt):
                                                                bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))
 
                         if save_crop:
-                            save_one_box(bboxes, imc, file=save_dir / 'crops' / names[c] / f'{id}' / f'{p.stem}_{id}_.jpg', BGR=True)
+                            save_one_box(bboxes, imc, file=save_dir / 'crops' / names[c] / f'{id}' / f'{p.stem}_{id}_{dataset.frame}.jpg', BGR=True)
 
                 LOGGER.info(f'{s}Done. YOLO:({t3 - t2:.3f}s), DeepSort:({t5 - t4:.3f}s)')
 
